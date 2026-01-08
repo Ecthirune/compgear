@@ -7,8 +7,9 @@ set(CMAKE_CXX_STANDART_REQUIRED ON)
 
 set(SOURCES
     main.cpp
-    gui.cpp
-    controller.cpp
+    gui/gui.cpp
+    controller/controller.cpp
+    model/model.cpp
 )
 list(APPEND SOURCES
     imgui/imgui.cpp
@@ -29,4 +30,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
 target_link_libraries(${PROJECT_NAME} d3d11 dwmapi)
 target_compile_definitions(${PROJECT_NAME} PRIVATE UNICODE _UNICODE)
+
+
 set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DPI_AWARE "PerMonitor")

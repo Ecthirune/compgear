@@ -4,8 +4,7 @@
 class Controller
 {
     public:
-    static std::wstring GetClipboardText();
-
+    static std::string GetClipboardText();
     static void ProcessClipboard();
 
 };

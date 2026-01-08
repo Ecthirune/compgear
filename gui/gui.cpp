@@ -8,10 +8,10 @@
 #pragma comment(lib, "dwmapi.lib")
 
 // imgui inc
-#include "controller.h"
-#include "imgui/backends/imgui_impl_dx11.h"
-#include "imgui/backends/imgui_impl_win32.h"
-#include "imgui/imgui.h"
+#include "../controller/controller.h"
+#include "../imgui/backends/imgui_impl_dx11.h"
+#include "../imgui/backends/imgui_impl_win32.h"
+#include "../imgui/imgui.h"
 
 static ID3D11Device* g_pd3dDevice = nullptr;
 static ID3D11DeviceContext* g_pd3dDeviceContext = nullptr;
@@ -94,6 +94,7 @@ void CreateRenderTarget() {
   pBackBuffer->Release();
 }
 
+
 void RenderUI() {
    
     ImGui::SetNextWindowPos(ImVec2(0, 0));
@@ -112,9 +113,9 @@ void RenderUI() {
  
     ImGui::TextColored(ImVec4(1, 1, 0, 1), "CompGear"); 
     ImGui::Separator();
-
-    if (ImGui::Button("Insert data", ImVec2(-1, 40))) {
-        
+   
+    if (ImGui::Button("Get data", ImVec2(-1, 40))) {
+          //Controller::ProcessClipboard();
     }
     
    
