@@ -1,39 +1,49 @@
 #include "controller.h"
-#include <windows.h>
 #include "../model/model.h"
+#include <set>
+#include <algorithm>
 
-#define WIN32_LEAN_AND_MEAN
+static Model g_model;
+static std::string g_selected_base;
+static std::vector<std::string> g_selected_stats;
 
-
-std::string Controller::GetClipboardText() {
-  if (!OpenClipboard(nullptr)) return "";
-
-  HANDLE hData = GetClipboardData(CF_UNICODETEXT);
-  if (!hData) {
-    CloseClipboard();
-    return "";
-  }
-  const wchar_t* wstr = static_cast<const wchar_t*>(GlobalLock(hData));
-  if (!wstr) {
-        CloseClipboard();
-        return {};
-    }
-int len = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, nullptr, 0, nullptr, nullptr);
-    std::string data;
-    if (len > 0) {
-        data.resize(len - 1); 
-        WideCharToMultiByte(CP_UTF8, 0, wstr, -1, &data[0], len, nullptr, nullptr);
-    }
-  GlobalUnlock(hData);
-  CloseClipboard();
-  return data;
+std::vector<std::string> Controller::GetItemBases() {
+    return g_model.GetParsedItemData().base_types;
 }
 
-void Controller::ProcessClipboard() {
-  std::string text = GetClipboardText();
-  if (text.empty()) {
-    OutputDebugString(L"[Controller] Clipboard is empty\n");
-    return;
-  }
-  
+void Controller::SetItemBase(const std::string& type) {
+    g_selected_base = type;
+}
+
+void Controller::ToggleStat(const std::string& stat, bool active) {
+    auto it = std::find(g_selected_stats.begin(), g_selected_stats.end(), stat);
+    if (active) {
+        if (it == g_selected_stats.end()) g_selected_stats.push_back(stat);
+    } else {
+        if (it != g_selected_stats.end()) g_selected_stats.erase(it);
+    }
+}
+
+bool Controller::NeedsAttributeSelector(const std::string& item_base) {
+    return g_model.IsArmourBase(item_base);
+}
+
+std::vector<std::string> Controller::RefreshAffixes() {
+    if (g_selected_base.empty()) return {};
+
+    std::set<std::string> query;
+    query.insert(g_selected_base); // Например "helmet"
+
+    if (g_model.IsArmourBase(g_selected_base)) {
+        // Правило: для брони всегда добавляем общий тег "armour"
+        query.insert("armour");
+
+        // Если выбраны статы, добавляем составной тег через Модель
+        if (!g_selected_stats.empty()) {
+            std::string condition = g_model.BuildConditionTag(g_selected_stats);
+            query.insert(condition);
+        }
+    }
+
+    return g_model.GetAffixesByTags(query);
 }
