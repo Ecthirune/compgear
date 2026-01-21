@@ -11,8 +11,6 @@ set(SOURCES
     gui/gui.cpp
     controller/controller.cpp
     model/model.cpp
-    data/affix_sorter.cpp
-    
 )
 list(APPEND SOURCES
     include/imgui/imgui.cpp
