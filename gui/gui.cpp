@@ -116,13 +116,10 @@ void CreateRenderTarget() {
 }
 
 void RenderUI() {
-    // Получаем актуальный список из контроллера
     std::vector<std::string> bases = Controller::GetItemBases();
     if (bases.empty()) return;
 
     static int selected_idx = 0;
-    
-    // Инициализируем выбор в контроллере при первом запуске
     static bool init = false;
     if (!init) {
         Controller::SetItemBase(bases[selected_idx]);
@@ -131,24 +128,21 @@ void RenderUI() {
 
     ImGui::Begin("Affix Selector");
 
-    // Селектор базы
     if (ImGui::BeginCombo("Item Base", bases[selected_idx].c_str())) {
         for (int n = 0; n < bases.size(); n++) {
             if (ImGui::Selectable(bases[n].c_str(), selected_idx == n)) {
                 selected_idx = n;
-                Controller::SetItemBase(bases[n]); // Обновляем модель
+                Controller::SetItemBase(bases[n]);
             }
         }
         ImGui::EndCombo();
     }
      static auto available_affixes = Controller::RefreshAffixes();
-    // Динамическое отображение статов через контроллер
   if (Controller::NeedsAttributeSelector(bases[selected_idx])) {
     ImGui::Separator();
     ImGui::Text("Base Attributes:");
     static bool s_str = false, s_dex = false, s_int = false;
 
-    // Флаг для отслеживания изменений в этом кадре
     bool changed = false;
 
     if (ImGui::Checkbox("STR", &s_str)) { 
@@ -166,18 +160,15 @@ void RenderUI() {
         changed = true; 
     }
 
-    // Вызываем тяжелый поиск ТОЛЬКО если был клик
     if (changed) {
         available_affixes = Controller::RefreshAffixes();
     }
 }
 
 
-    // 4. ОТОБРАЖЕНИЕ РЕЗУЛЬТАТА (Выбор конкретного аффикса)
     if (!available_affixes.empty()) {
         static int selected_affix_idx = 0;
         
-        // Преобразуем vector<string> в формат для Combo
         if (ImGui::BeginCombo("Select Affix", available_affixes[selected_affix_idx].c_str())) {
             for (int n = 0; n < available_affixes.size(); n++) {
                 bool is_selected = (selected_affix_idx == n);

@@ -32,13 +32,11 @@ std::vector<std::string> Controller::RefreshAffixes() {
     if (g_selected_base.empty()) return {};
 
     std::set<std::string> query;
-    query.insert(g_selected_base); // Например "helmet"
+    query.insert(g_selected_base); 
 
     if (g_model.IsArmourBase(g_selected_base)) {
-        // Правило: для брони всегда добавляем общий тег "armour"
         query.insert("armour");
 
-        // Если выбраны статы, добавляем составной тег через Модель
         if (!g_selected_stats.empty()) {
             std::string condition = g_model.BuildConditionTag(g_selected_stats);
             query.insert(condition);

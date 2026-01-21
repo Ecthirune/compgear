@@ -29,7 +29,6 @@ ItemData Model::GetParsedItemData() {
     std::set<std::string> conditions;
 
     for (auto& [id, affix] : cached_data.items()) {
-        // Условие: domain "item", тип "prefix" или "suffix"
         if (affix.value("domain", "") != "item") continue;
         std::string gen_type = affix.value("generation_type", "");
         if (gen_type != "prefix" && gen_type != "suffix") continue;
@@ -39,7 +38,7 @@ ItemData Model::GetParsedItemData() {
                 std::string tag = sw.value("tag", "");
                 if (sw.value("weight", 0) <= 0 || FoundProhibitedTag(tag)) continue;
 
-                // Классификация: если есть _armour - это условие, иначе - база
+                // if "_armour" found -> it's condition
                 if ((tag.find("_armour") != std::string::npos) && !(tag.find("body_armour") != std::string::npos)) {
                     conditions.insert(tag);
                 } else {
@@ -59,7 +58,7 @@ std::vector<std::string> Model::GetAffixesByTags(const std::set<std::string>& se
     for (auto& [id, affix] : cached_data.items()) {
         if (affix.value("domain", "") != "item") continue;
 
-        // Проверяем только префиксы и суффиксы (как договаривались ранее)
+        // checking suffix/prefix
         std::string gen_type = affix.value("generation_type", "");
         if (gen_type != "prefix" && gen_type != "suffix") continue;
 
@@ -67,11 +66,11 @@ std::vector<std::string> Model::GetAffixesByTags(const std::set<std::string>& se
             for (auto& sw : affix["spawn_weights"]) {
                 if (sw.value("weight", 0) > 0 && search_tags.count(sw.value("tag", ""))) {
                     
-                    std::string group_key = affix.value("type", ""); // Логическая группа (напр. "Strength")
-                    std::string display_text = affix.value("text", id); // Описание (напр. "+# to Strength")
+                    std::string group_key = affix.value("type", ""); // Logical group (strength, dexterity, resistance etc)
+                    std::string display_text = affix.value("text", id); // Entire text
 
                     if (!group_key.empty()) {
-                        // Если такая группа еще не добавлена, добавляем её описание
+                        // Add if not already exists
                         if (unique_results.find(group_key) == unique_results.end()) {
                             unique_results[group_key] = display_text;
                         }
@@ -82,13 +81,12 @@ std::vector<std::string> Model::GetAffixesByTags(const std::set<std::string>& se
         }
     }
 
-    // Собираем только описания (text) в финальный вектор
+    // Collecting texts
     std::vector<std::string> final_list;
     for (auto const& [key, text] : unique_results) {
         final_list.push_back(text);
     }
 
-    // Сортируем алфавитно для удобства в GUI
     std::sort(final_list.begin(), final_list.end());
     
     return final_list;
@@ -98,7 +96,6 @@ std::string Model::BuildConditionTag(const std::vector<std::string>& stats) {
     if (stats.empty()) return "";
     
     std::string res = "";
-    // Строгий алфавитный порядок POE для статов в тегах
     if (std::find(stats.begin(), stats.end(), "str") != stats.end()) res += "str_";
     if (std::find(stats.begin(), stats.end(), "dex") != stats.end()) res += "dex_";
     if (std::find(stats.begin(), stats.end(), "int") != stats.end()) res += "int_";
