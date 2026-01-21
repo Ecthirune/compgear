@@ -29,19 +29,9 @@ bool Controller::NeedsAttributeSelector(const std::string& item_base) {
 }
 
 std::vector<std::string> Controller::RefreshAffixes() {
-  if (g_selected_base.empty()) return {};
+if (g_selected_base.empty()) return {};
 
-  std::set<std::string> query;
-  query.insert(g_selected_base);
-
-  if (g_model.IsArmourBase(g_selected_base)) {
-    query.insert("armour");
-
-    if (!g_selected_stats.empty()) {
-      std::string condition = g_model.BuildConditionTag(g_selected_stats);
-      query.insert(condition);
-    }
-  }
+  std::set<std::string> query = g_model.GetQueryTagsForBase(g_selected_base, g_selected_stats);
 
   return g_model.GetAffixesByTags(query);
 }
@@ -55,3 +45,8 @@ void Controller::AddSelectedAffixToPreset(const std::string& display_text) {
 const std::vector<SelectedItem>& Controller::GetCurrentPresetContent() {
   return g_model.GetCurrentPresetItems();
 }
+
+   std::vector<std::string> Controller::GetPresetList() { return g_model.GetAvailablePresets(); }
+   void Controller::LoadPreset(const std::string& name) { g_model.LoadPresetFromFile(name); }
+   void Controller::NewPreset() { g_model.ClearCurrentPreset(); }
+

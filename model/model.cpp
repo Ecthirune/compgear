@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <fstream>
 #include <list>
+#include <filesystem>
+
 
 void Model::LoadData() {
   std::ifstream f("input.json");
@@ -60,7 +62,7 @@ std::vector<std::string> Model::GetAffixesByTags(
   std::map<std::string, std::string> unique_results;
 
   for (auto& [id, affix] : cached_data.items()) {
-    if (affix.value("domain", "") != "item") continue;
+    if (affix.value("domain", "") != "item" && affix.value("domain", "") != "desecrated" && affix.value("domain", "") != "misc") continue;
 
     // checking suffix/prefix
     std::string gen_type = affix.value("generation_type", "");
@@ -138,4 +140,57 @@ void Model::AddAffixToPreset(const std::string& tag,
     newItem.affixes.push_back(affix_text);
     current_preset_items.push_back(newItem);
   }
+}
+
+std::vector<std::string> Model::GetAvailablePresets() {
+    std::vector<std::string> presets;
+    for (const auto& entry : std::filesystem::directory_iterator(".")) {
+        if (entry.path().extension() == ".preset") { // Используем свое расширение
+            presets.push_back(entry.path().filename().string());
+        }
+    }
+    return presets;
+}
+
+void Model::LoadPresetFromFile(const std::string& filename) {
+    std::ifstream f(filename);
+    if (f.is_open()) {
+        json j = json::parse(f);
+        current_preset_items.clear();
+        for (auto& item : j) {
+            SelectedItem si;
+            si.tag_name = item["tag"];
+            si.affixes = item["affixes"].get<std::vector<std::string>>();
+            current_preset_items.push_back(si);
+        }
+    }
+}
+
+void Model::CreateNewPreset() {
+    current_preset_items.clear();
+}
+
+void Model::ClearCurrentPreset() {
+    current_preset_items.clear();
+}
+
+std::set<std::string> Model::GetQueryTagsForBase(const std::string& base, const std::vector<std::string>& manual_stats) {
+    std::set<std::string> tags;
+    tags.insert(base);
+
+    // Логика для фокусов (скрытая настройка модели)
+    if (base == "focus") {
+        tags.insert("armour");
+        tags.insert("int_armour");
+    }
+    // Логика для брони (явная настройка через статы)
+    else if (IsArmourBase(base)) {
+        tags.insert("armour");
+        std::string condition = BuildConditionTag(manual_stats);
+        if (!condition.empty()) {
+            tags.insert(condition);
+        }
+    }
+    
+    return tags;
 }

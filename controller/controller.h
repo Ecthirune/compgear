@@ -20,4 +20,8 @@ class Controller {
   // Preset controls
   static void AddSelectedAffixToPreset(const std::string& display_text);
   static const std::vector<SelectedItem>& GetCurrentPresetContent();
+  static std::vector<std::string> GetPresetList();
+  static void LoadPreset(const std::string& name);
+  static void NewPreset();
+
 };

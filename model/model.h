@@ -41,7 +41,13 @@ class Model {
     return current_preset_items;
   }
   void SavePreset(const std::string& name);
+  std::vector<std::string> GetAvailablePresets();
+  void LoadPresetFromFile(const std::string& filename);
+  void CreateNewPreset();
+  void ClearCurrentPreset();
+  std::set<std::string> GetQueryTagsForBase(const std::string& base, const std::vector<std::string>& manual_stats);
 
+  
  private:
   json cached_data;
   std::vector<SelectedItem> current_preset_items;
