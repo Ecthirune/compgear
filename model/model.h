@@ -1,32 +1,49 @@
 #pragma once
-#include <vector>
-#include <string>
-#include <set>
 #include <map>
 #include <nlohmann/json.hpp>
+#include <set>
+#include <string>
+#include <vector>
 
 using json = nlohmann::json;
 
 struct ItemData {
-    std::vector<std::string> base_types;
-    std::vector<std::string> condition_tags; 
+  std::vector<std::string> base_types;
+  std::vector<std::string> condition_tags;
+};
+struct SelectedItem {
+  std::string tag_name;
+  std::vector<std::string> affixes;
+};
+
+struct Preset {
+  std::string name;
+  std::vector<SelectedItem> items;
 };
 
 class Model {
-public:
-    Model() { LoadData(); }
-    void LoadData();
+ public:
+  Model() { LoadData(); }
+  void LoadData();
 
-    // Прямой парсинг JSON для получения всех доступных баз и условий
-    ItemData GetParsedItemData();
-    
-    // Поиск аффиксов по набору тегов (OR логика: если есть хоть один тег из сета)
-    std::vector<std::string> GetAffixesByTags(const std::set<std::string>& search_tags);
+  // Straight json parsing and sorting
+  ItemData GetParsedItemData();
+  std::vector<std::string> GetAffixesByTags(
+      const std::set<std::string>& search_tags);
 
-    // Вспомогательные методы логики POE
-    std::string BuildConditionTag(const std::vector<std::string>& stats);
-    bool IsArmourBase(const std::string& base);
+  // Small convertations for armour/shield tag
+  std::string BuildConditionTag(const std::vector<std::string>& stats);
+  bool IsArmourBase(const std::string& base);
 
-private:
-    json cached_data;
+  // preset controls
+  void AddAffixToPreset(const std::string& tag, const std::string& affix_text);
+  const std::vector<SelectedItem>& GetCurrentPresetItems() const {
+    return current_preset_items;
+  }
+  void SavePreset(const std::string& name);
+
+ private:
+  json cached_data;
+  std::vector<SelectedItem> current_preset_items;
+  std::vector<Preset> saved_presets;
 };

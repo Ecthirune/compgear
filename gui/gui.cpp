@@ -4,16 +4,16 @@
 #include <dwmapi.h>
 #include <windows.h>
 
+#include <algorithm>  // для std::max
 #include <string>
-#include <algorithm> // для std::max
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dwmapi.lib")
 
 // imgui inc
 #include "../controller/controller.h"
-#include "../include/imgui/imgui.h"
 #include "../include/imgui/backends/imgui_impl_dx11.h"
 #include "../include/imgui/backends/imgui_impl_win32.h"
+#include "../include/imgui/imgui.h"
 
 #define HOTKEY_ID_F11 1001
 #pragma execution_character_set("utf-8")
@@ -29,7 +29,6 @@ static bool g_showGui = false;
 static bool g_windowSizeNeedsUpdate = false;
 static ImVec2 g_windowMinSize = ImVec2(1000, 1000);
 static ImVec2 g_windowTargetSize = ImVec2(1000, 1000);
-
 
 void CleanupRenderTarget();
 void CleanupDeviceD3D();
@@ -65,16 +64,16 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
       }
       break;
     case WM_SIZE:
-     if (wParam != SIZE_MINIMIZED) {
-    CleanupRenderTarget();
-    if (g_pSwapChain) {
-      g_pSwapChain->ResizeBuffers(0, LOWORD(lParam), HIWORD(lParam),
-                                  DXGI_FORMAT_UNKNOWN, 0);
-      CreateRenderTarget();
-      ImGui_ImplDX11_InvalidateDeviceObjects();
-      ImGui_ImplDX11_CreateDeviceObjects();
-    }
-  }
+      if (wParam != SIZE_MINIMIZED) {
+        CleanupRenderTarget();
+        if (g_pSwapChain) {
+          g_pSwapChain->ResizeBuffers(0, LOWORD(lParam), HIWORD(lParam),
+                                      DXGI_FORMAT_UNKNOWN, 0);
+          CreateRenderTarget();
+          ImGui_ImplDX11_InvalidateDeviceObjects();
+          ImGui_ImplDX11_CreateDeviceObjects();
+        }
+      }
       return 0;
     case WM_DESTROY:
       UnregisterHotKey(hWnd, HOTKEY_ID_F11);
@@ -116,28 +115,28 @@ void CreateRenderTarget() {
 }
 
 void RenderUI() {
-    std::vector<std::string> bases = Controller::GetItemBases();
-    if (bases.empty()) return;
+  std::vector<std::string> bases = Controller::GetItemBases();
+  if (bases.empty()) return;
 
-    static int selected_idx = 0;
-    static bool init = false;
-    if (!init) {
-        Controller::SetItemBase(bases[selected_idx]);
-        init = true;
+  static int selected_idx = 0;
+  static bool init = false;
+  if (!init) {
+    Controller::SetItemBase(bases[selected_idx]);
+    init = true;
+  }
+
+  ImGui::Begin("Affix Selector");
+
+  if (ImGui::BeginCombo("Item Base", bases[selected_idx].c_str())) {
+    for (int n = 0; n < bases.size(); n++) {
+      if (ImGui::Selectable(bases[n].c_str(), selected_idx == n)) {
+        selected_idx = n;
+        Controller::SetItemBase(bases[n]);
+      }
     }
-
-    ImGui::Begin("Affix Selector");
-
-    if (ImGui::BeginCombo("Item Base", bases[selected_idx].c_str())) {
-        for (int n = 0; n < bases.size(); n++) {
-            if (ImGui::Selectable(bases[n].c_str(), selected_idx == n)) {
-                selected_idx = n;
-                Controller::SetItemBase(bases[n]);
-            }
-        }
-        ImGui::EndCombo();
-    }
-     static auto available_affixes = Controller::RefreshAffixes();
+    ImGui::EndCombo();
+  }
+  static auto available_affixes = Controller::RefreshAffixes();
   if (Controller::NeedsAttributeSelector(bases[selected_idx])) {
     ImGui::Separator();
     ImGui::Text("Base Attributes:");
@@ -145,47 +144,62 @@ void RenderUI() {
 
     bool changed = false;
 
-    if (ImGui::Checkbox("STR", &s_str)) { 
-        Controller::ToggleStat("str", s_str); 
-        changed = true; 
+    if (ImGui::Checkbox("STR", &s_str)) {
+      Controller::ToggleStat("str", s_str);
+      changed = true;
     }
     ImGui::SameLine();
-    if (ImGui::Checkbox("DEX", &s_dex)) { 
-        Controller::ToggleStat("dex", s_dex); 
-        changed = true; 
+    if (ImGui::Checkbox("DEX", &s_dex)) {
+      Controller::ToggleStat("dex", s_dex);
+      changed = true;
     }
     ImGui::SameLine();
-    if (ImGui::Checkbox("INT", &s_int)) { 
-        Controller::ToggleStat("int", s_int); 
-        changed = true; 
+    if (ImGui::Checkbox("INT", &s_int)) {
+      Controller::ToggleStat("int", s_int);
+      changed = true;
     }
 
     if (changed) {
-        available_affixes = Controller::RefreshAffixes();
+      available_affixes = Controller::RefreshAffixes();
     }
-}
+  }
 
-
+  static int selected_affix_idx = 0;
+  if (!available_affixes.empty()) {
+    if (ImGui::BeginCombo("Select Affix",
+                          available_affixes[selected_affix_idx].c_str())) {
+      for (int n = 0; n < available_affixes.size(); n++) {
+        bool is_selected = (selected_affix_idx == n);
+        if (ImGui::Selectable(available_affixes[n].c_str(), is_selected))
+          selected_affix_idx = n;
+        if (is_selected) ImGui::SetItemDefaultFocus();
+      }
+      ImGui::EndCombo();
+    }
+  }
+  if (ImGui::Button("Add Affix to Preset")) {
     if (!available_affixes.empty()) {
-        static int selected_affix_idx = 0;
-        
-        if (ImGui::BeginCombo("Select Affix", available_affixes[selected_affix_idx].c_str())) {
-            for (int n = 0; n < available_affixes.size(); n++) {
-                bool is_selected = (selected_affix_idx == n);
-                if (ImGui::Selectable(available_affixes[n].c_str(), is_selected))
-                    selected_affix_idx = n;
-                if (is_selected)
-                    ImGui::SetItemDefaultFocus();
-            }
-            ImGui::EndCombo();
-        }
-
-        // if (ImGui::Button("Add to Template")) {
-        //     Controller::AddAffixRequirement(available_affixes[selected_affix_idx], 1);
-        // }
+      Controller::AddSelectedAffixToPreset(
+          available_affixes[selected_affix_idx]);
     }
+  }
 
-    ImGui::End();
+  ImGui::Separator();
+
+  ImGui::TextColored(ImVec4(1, 1, 0, 1), "YOUR PRESET:");
+
+  const auto& preset_content = Controller::GetCurrentPresetContent();
+
+  for (const auto& item : preset_content) {
+    if (ImGui::TreeNode(item.tag_name.c_str())) {
+      for (const auto& aff : item.affixes) {
+        ImGui::BulletText("%s", aff.c_str());  // Выводим аффиксы точками
+      }
+      ImGui::TreePop();
+    }
+  }
+
+  ImGui::End();
 }
 
 bool CreateDeviceD3D(HWND hWnd) {
@@ -234,15 +248,15 @@ bool imgui_init() {
 
   // Изменяем стиль окна, чтобы сделать его изменяемым
   DWORD windowStyle = WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME;
-  
+
   g_hwnd = CreateWindowEx(WS_EX_TOPMOST | WS_EX_LAYERED, wc.lpszClassName,
-                          L"CompGear", windowStyle, 100, 100, 1000, 1000, nullptr,
-                          nullptr, wc.hInstance, nullptr);
-  
+                          L"CompGear", windowStyle, 100, 100, 1000, 1000,
+                          nullptr, nullptr, wc.hInstance, nullptr);
+
   SetLayeredWindowAttributes(g_hwnd, 0, 255, LWA_ALPHA);
   MARGINS margins = {-1};
   DwmExtendFrameIntoClientArea(g_hwnd, &margins);
-  
+
   if (!g_hwnd) {
     OutputDebugStringW(L"[ERROR] CreateWindowEx failed!\n");
     return false;
@@ -274,50 +288,50 @@ bool imgui_init() {
 
   while (!done) {
     while (PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE)) {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-        if (msg.message == WM_QUIT) done = true;
+      TranslateMessage(&msg);
+      DispatchMessage(&msg);
+      if (msg.message == WM_QUIT) done = true;
     }
     if (done) break;
 
     if (g_showGui) {
-        // Обновляем размер окна, если нужно
-        if (g_windowSizeNeedsUpdate) {
-            RECT windowRect;
-            GetWindowRect(g_hwnd, &windowRect);
-            int x = windowRect.left;
-            int y = windowRect.top;
-            
-            SetWindowPos(g_hwnd, HWND_TOPMOST, x, y, 
-                        (int)g_windowTargetSize.x, 
-                        (int)g_windowTargetSize.y,
-                        SWP_NOZORDER | SWP_SHOWWINDOW);
-            
-            g_windowSizeNeedsUpdate = false;
-        }
+      // Обновляем размер окна, если нужно
+      if (g_windowSizeNeedsUpdate) {
+        RECT windowRect;
+        GetWindowRect(g_hwnd, &windowRect);
+        int x = windowRect.left;
+        int y = windowRect.top;
 
-        ImGui_ImplDX11_NewFrame();
-        ImGui_ImplWin32_NewFrame();
-        ImGui::NewFrame();
+        SetWindowPos(g_hwnd, HWND_TOPMOST, x, y, (int)g_windowTargetSize.x,
+                     (int)g_windowTargetSize.y, SWP_NOZORDER | SWP_SHOWWINDOW);
 
-        RenderUI(); 
+        g_windowSizeNeedsUpdate = false;
+      }
 
-        ImGui::Render();
-        const float clear_color_with_alpha[4] = { 0.f, 0.f, 0.f, 0.f };
-        g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);
-        g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, clear_color_with_alpha);
-        ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+      ImGui_ImplDX11_NewFrame();
+      ImGui_ImplWin32_NewFrame();
+      ImGui::NewFrame();
 
-        g_pSwapChain->Present(1, 0); 
-        
-        if (ImGui::IsAnyItemActive() || ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)) {
-            Sleep(5); 
-        } else {
-            Sleep(16); // ~60 FPS
-        }
-    }
-    else {
-        WaitMessage(); 
+      RenderUI();
+
+      ImGui::Render();
+      const float clear_color_with_alpha[4] = {0.f, 0.f, 0.f, 0.f};
+      g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView,
+                                              nullptr);
+      g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView,
+                                                 clear_color_with_alpha);
+      ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+
+      g_pSwapChain->Present(1, 0);
+
+      if (ImGui::IsAnyItemActive() ||
+          ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)) {
+        Sleep(5);
+      } else {
+        Sleep(16);  // ~60 FPS
+      }
+    } else {
+      WaitMessage();
     }
   }
 
