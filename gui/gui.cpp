@@ -5,11 +5,10 @@
 #include <windows.h>
 
 #include <algorithm>
-#include <string>
 #include <sstream>
+#include <string>
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dwmapi.lib")
-
 
 #include "../controller/controller.h"
 #include "../include/imgui/backends/imgui_impl_dx11.h"
@@ -117,34 +116,35 @@ void CreateRenderTarget() {
 
 enum class GuiState { MainMenu, Editor };
 static GuiState g_currentState = GuiState::MainMenu;
-  static int selected_affix_idx = 0;
+static int selected_affix_idx = 0;
 
 bool PassFilter(const std::string& affix, const std::string& filter) {
-    if (filter.empty()) return true;
-    
-    std::stringstream ss(filter);
-    std::string token;
-    while (ss >> token) {
-        if (token.length() < 3) continue;
-        
-       
-        auto it = std::search(
-            affix.begin(), affix.end(),
-            token.begin(), token.end(),
-            [](char a, char b) { return std::tolower(a) == std::tolower(b); }
-        );
-        
-        if (it == affix.end()) return false; 
-    }
+  if (filter.empty())
     return true;
+
+  std::stringstream ss(filter);
+  std::string token;
+  while (ss >> token) {
+    if (token.length() < 3)
+      continue;
+
+    auto it = std::search(
+        affix.begin(), affix.end(), token.begin(), token.end(),
+        [](char a, char b) { return std::tolower(a) == std::tolower(b); });
+
+    if (it == affix.end())
+      return false;
+  }
+  return true;
 }
 
-void RenderEditor()
-{
-  if (ImGui::Button("<< Back to Menu")) g_currentState = GuiState::MainMenu;
+void RenderEditor() {
+  if (ImGui::Button("<< Back to Menu"))
+    g_currentState = GuiState::MainMenu;
 
-    std::vector<std::string> bases = Controller::GetItemBases();
-  if (bases.empty()) return;
+  std::vector<std::string> bases = Controller::GetItemBases();
+  if (bases.empty())
+    return;
 
   static int selected_idx = 0;
   static bool init = false;
@@ -161,7 +161,6 @@ void RenderEditor()
         selected_idx = n;
         Controller::SetItemBase(bases[n]);
         changed = true;
-        
       }
     }
     ImGui::EndCombo();
@@ -171,8 +170,6 @@ void RenderEditor()
     ImGui::Separator();
     ImGui::Text("Base Attributes:");
     static bool s_str = false, s_dex = false, s_int = false;
-
-    
 
     if (ImGui::Checkbox("STR", &s_str)) {
       Controller::ToggleStat("str", s_str);
@@ -188,51 +185,53 @@ void RenderEditor()
       Controller::ToggleStat("int", s_int);
       changed = true;
     }
-
-   
   }
- if (changed) {
-      selected_affix_idx = 0;
-      available_affixes = Controller::RefreshAffixes();
-    }
+  if (changed) {
+    selected_affix_idx = 0;
+    available_affixes = Controller::RefreshAffixes();
+  }
 
   if (!available_affixes.empty()) {
-   static char filter_buffer[128] = "";
-ImGui::InputText("Search Affix (min 3 chars)", filter_buffer, IM_ARRAYSIZE(filter_buffer));
+    static char filter_buffer[128] = "";
+    ImGui::InputText("Search Affix (min 3 chars)", filter_buffer,
+                     IM_ARRAYSIZE(filter_buffer));
 
-static int selected_affix_idx = 0;
-std::vector<int> filtered_indices;
+    static int selected_affix_idx = 0;
+    std::vector<int> filtered_indices;
 
-// Фильтруем индексы доступных аффиксов
-for (int i = 0; i < available_affixes.size(); ++i) {
-    if (PassFilter(available_affixes[i], filter_buffer)) {
+    // Фильтруем индексы доступных аффиксов
+    for (int i = 0; i < available_affixes.size(); ++i) {
+      if (PassFilter(available_affixes[i], filter_buffer)) {
         filtered_indices.push_back(i);
+      }
     }
-}
 
-if (!filtered_indices.empty()) {
-    if (ImGui::BeginListBox("##AffixList", ImVec2(-FLT_MIN, 150))) {
+    if (!filtered_indices.empty()) {
+      if (ImGui::BeginListBox("##AffixList", ImVec2(-FLT_MIN, 150))) {
         for (int i = 0; i < filtered_indices.size(); ++i) {
-            int original_idx = filtered_indices[i];
-            bool is_selected = (selected_affix_idx == original_idx);
-            
-            if (ImGui::Selectable(available_affixes[original_idx].c_str(), is_selected)) {
-                selected_affix_idx = original_idx;
-            }
-            
-            if (is_selected) ImGui::SetItemDefaultFocus();
+          int original_idx = filtered_indices[i];
+          bool is_selected = (selected_affix_idx == original_idx);
+
+          if (ImGui::Selectable(available_affixes[original_idx].c_str(),
+                                is_selected)) {
+            selected_affix_idx = original_idx;
+          }
+
+          if (is_selected)
+            ImGui::SetItemDefaultFocus();
         }
         ImGui::EndListBox();
-    }
+      }
 
-    if (ImGui::Button("Add Affix to Preset")) {
+      if (ImGui::Button("Add Affix to Preset")) {
         if (selected_affix_idx < available_affixes.size()) {
-            Controller::AddSelectedAffixToPreset(available_affixes[selected_affix_idx]);
+          Controller::AddSelectedAffixToPreset(
+              available_affixes[selected_affix_idx]);
         }
+      }
+    } else {
+      ImGui::TextDisabled("No affixes match your search.");
     }
-} else {
-    ImGui::TextDisabled("No affixes match your search.");
-}
   }
   if (ImGui::Button("Add Affix to Preset")) {
     if (!available_affixes.empty()) {
@@ -260,37 +259,38 @@ if (!filtered_indices.empty()) {
 }
 
 void RenderMainMenu() {
-    ImGui::Begin("PoE2 Preset Manager", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-    
-    if (ImGui::Button("A) Create New Preset", ImVec2(300, 40))) {
-        Controller::NewPreset();
+  ImGui::Begin("PoE2 Preset Manager", nullptr,
+               ImGuiWindowFlags_AlwaysAutoResize);
+
+  if (ImGui::Button("A) Create New Preset", ImVec2(300, 40))) {
+    Controller::NewPreset();
+    g_currentState = GuiState::Editor;
+  }
+
+  ImGui::Separator();
+  ImGui::Text("B) Edit Existing Preset:");
+
+  auto presets = Controller::GetPresetList();
+  if (presets.empty()) {
+    ImGui::TextDisabled("No presets found in folder...");
+  } else {
+    for (const auto& name : presets) {
+      if (ImGui::Button(name.c_str(), ImVec2(300, 0))) {
+        Controller::LoadPreset(name);
         g_currentState = GuiState::Editor;
+      }
     }
+  }
 
-    ImGui::Separator();
-    ImGui::Text("B) Edit Existing Preset:");
-    
-    auto presets = Controller::GetPresetList();
-    if (presets.empty()) {
-        ImGui::TextDisabled("No presets found in folder...");
-    } else {
-        for (const auto& name : presets) {
-            if (ImGui::Button(name.c_str(), ImVec2(300, 0))) {
-                Controller::LoadPreset(name);
-                g_currentState = GuiState::Editor;
-            }
-        }
-    }
-
-    ImGui::End();
+  ImGui::End();
 }
 
 void RenderUI() {
-    if (g_currentState == GuiState::MainMenu) {
-        RenderMainMenu();
-    } else {
-        RenderEditor();
-    }
+  if (g_currentState == GuiState::MainMenu) {
+    RenderMainMenu();
+  } else {
+    RenderEditor();
+  }
 }
 
 bool CreateDeviceD3D(HWND hWnd) {
@@ -381,9 +381,11 @@ bool imgui_init() {
     while (PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE)) {
       TranslateMessage(&msg);
       DispatchMessage(&msg);
-      if (msg.message == WM_QUIT) done = true;
+      if (msg.message == WM_QUIT)
+        done = true;
     }
-    if (done) break;
+    if (done)
+      break;
 
     if (g_showGui) {
       // Обновляем размер окна, если нужно
