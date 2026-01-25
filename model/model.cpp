@@ -1,196 +1,227 @@
 #include "model.h"
 
+#include <windows.h>
+
 #include <algorithm>
+#include <filesystem>
 #include <fstream>
 #include <list>
-#include <filesystem>
+#include <regex>
 
+std::string NormalizeAffixText(std::string text) {
+  // 1. diapasons
+  static const std::regex range_regex(
+      R"(\+?\s*\(\s*[0-9.]+\s*[-–]\s*[0-9.]+\s*\)\s*(%?))");
+  text = std::regex_replace(text, range_regex, "#$1");
 
-void Model::LoadData() {
-  std::ifstream f("input.json");
-  if (f.is_open()) {
-    cached_data = json::parse(f);
-  }
+  // 2. tags
+  static const std::regex tag_regex(R"(\[(?:[^|\]]+\|)?([^\]]+)\])");
+  text = std::regex_replace(text, tag_regex, "$1");
+
+  // 3. numbers and percents
+  static const std::regex percent_regex(R"(\+?\d+%)");
+  text = std::regex_replace(text, percent_regex, "#%");
+  // 4. integers
+  static const std::regex number_regex(R"(\+?\d+(?!\.)\b)");
+  text = std::regex_replace(text, number_regex, "#");
+
+  // 5. spaces
+  static const std::regex multi_spaces(R"(\s{2,})");
+  text = std::regex_replace(text, multi_spaces, " ");
+
+  return text;
 }
 
-bool FoundProhibitedTag(const std::string& tag) {
-  std::list<std::string> prohibited_tags = {
-      "default",      "armour",         "amulet_elder",    "amulet_shaper",
-      "axe",          "dagger",         "fishing_rod",     "flail",
-      "gloves_elder", "gloves_shaper",  "one_hand_weapon", "two_hand_weapon",
-      "ranged",       "str_dex_shield", "str_int_shield",  "str_shield",
-      "sword",        "trap",           "warstaff",        "weapon"};
-  if (std::find(prohibited_tags.begin(), prohibited_tags.end(), tag) !=
-      prohibited_tags.end())
-    return true;
-  else
-    return false;
-}
+void Model::LoadFiles() {
+  std::ifstream f_affixes("affixes.json");
+  if (f_affixes.is_open()) {
+    try {
+      json_affixes = nlohmann::json::parse(f_affixes);
+    } catch (const nlohmann::json::parse_error& e) {
+      std::string error_msg = "Error in parsing affixes.json:\n";
+      error_msg += "What: " + std::string(e.what()) + "\n";
+      error_msg += "Where: " + std::to_string(e.byte) + "\n";
 
-ItemData Model::GetParsedItemData() {
-  ItemData data;
-  std::set<std::string> bases;
-  std::set<std::string> conditions;
-
-  for (auto& [id, affix] : cached_data.items()) {
-    if (affix.value("domain", "") != "item") continue;
-    std::string gen_type = affix.value("generation_type", "");
-    if (gen_type != "prefix" && gen_type != "suffix") continue;
-
-    if (affix.contains("spawn_weights") && affix["spawn_weights"].is_array()) {
-      for (auto& sw : affix["spawn_weights"]) {
-        std::string tag = sw.value("tag", "");
-        if (sw.value("weight", 0) <= 0 || FoundProhibitedTag(tag)) continue;
-
-        // if "_armour" found -> it's condition
-        if ((tag.find("_armour") != std::string::npos) &&
-            !(tag.find("body_armour") != std::string::npos)) {
-          conditions.insert(tag);
-        } else {
-          bases.insert(tag);
-        }
-      }
-    }
-  }
-  data.base_types.assign(bases.begin(), bases.end());
-  data.condition_tags.assign(conditions.begin(), conditions.end());
-  return data;
-}
-
-std::vector<std::string> Model::GetAffixesByTags(
-    const std::set<std::string>& search_tags) {
-  std::map<std::string, std::string> unique_results;
-
-  for (auto& [id, affix] : cached_data.items()) {
-    if (affix.value("domain", "") != "item" && affix.value("domain", "") != "desecrated" && affix.value("domain", "") != "misc") continue;
-
-    // checking suffix/prefix
-    std::string gen_type = affix.value("generation_type", "");
-    if (gen_type != "prefix" && gen_type != "suffix") continue;
-
-    if (affix.contains("spawn_weights") && affix["spawn_weights"].is_array()) {
-      for (auto& sw : affix["spawn_weights"]) {
-        if (sw.value("weight", 0) > 0 &&
-            search_tags.count(sw.value("tag", ""))) {
-          std::string group_key = affix.value(
-              "type",
-              "");  // Logical group (strength, dexterity, resistance etc)
-          std::string display_text = affix.value("text", id);  // Entire text
-
-          if (!group_key.empty()) {
-            // Add if not already exists
-            if (unique_results.find(group_key) == unique_results.end()) {
-              unique_results[group_key] = display_text;
-            }
-          }
-          break;
-        }
-      }
-    }
-  }
-
-  // Collecting texts
-  std::vector<std::string> final_list;
-  for (auto const& [key, text] : unique_results) {
-    final_list.push_back(text);
-  }
-
-  std::sort(final_list.begin(), final_list.end());
-
-  return final_list;
-}
-
-std::string Model::BuildConditionTag(const std::vector<std::string>& stats) {
-  if (stats.empty()) return "";
-
-  std::string res = "";
-  if (std::find(stats.begin(), stats.end(), "str") != stats.end())
-    res += "str_";
-  if (std::find(stats.begin(), stats.end(), "dex") != stats.end())
-    res += "dex_";
-  if (std::find(stats.begin(), stats.end(), "int") != stats.end())
-    res += "int_";
-
-  return res + "armour";
-}
-
-bool Model::IsArmourBase(const std::string& base) {
-  static const std::set<std::string> armour_bases = {
-      "helmet", "body_armour", "boots", "gloves", "shield"};
-  return armour_bases.count(base) > 0;
-}
-
-void Model::AddAffixToPreset(const std::string& tag,
-                             const std::string& affix_text) {
-  // If preset exists
-  auto it = std::find_if(
-      current_preset_items.begin(), current_preset_items.end(),
-      [&](const SelectedItem& item) { return item.tag_name == tag; });
-
-  if (it != current_preset_items.end()) {
-    // Check for duplicates inside tag's affixes
-    if (std::find(it->affixes.begin(), it->affixes.end(), affix_text) ==
-        it->affixes.end()) {
-      it->affixes.push_back(affix_text);
+      MessageBoxA(NULL, error_msg.c_str(), "Error JSON", MB_OK | MB_ICONERROR);
+      exit(1);
     }
   } else {
-    // New tag entrance
-    SelectedItem newItem;
-    newItem.tag_name = tag;
-    newItem.affixes.push_back(affix_text);
-    current_preset_items.push_back(newItem);
+    MessageBoxA(NULL, "affixes.json not found\n", "error file loading\n",
+                MB_OK | MB_ICONERROR);
+    exit(1);
   }
+  f_affixes.close();
+  std::ifstream f_weapons("weapons.json");
+  if (f_weapons.is_open()) {
+    try {
+      json_weapons = nlohmann::json::parse(f_weapons);
+    } catch (const nlohmann::json::parse_error& e) {
+      std::string error_msg = "Error in parsing weapons.json:\n";
+      error_msg += "What: " + std::string(e.what()) + "\n";
+      error_msg += "Where: " + std::to_string(e.byte) + "\n";
+
+      MessageBoxA(NULL, error_msg.c_str(), "Error JSON", MB_OK | MB_ICONERROR);
+      exit(1);
+    }
+  } else {
+    MessageBoxA(NULL, "weapons.json not found\n", "error file loading\n",
+                MB_OK | MB_ICONERROR);
+    exit(1);
+  }
+  f_weapons.close();
 }
 
-std::vector<std::string> Model::GetAvailablePresets() {
-    std::vector<std::string> presets;
-    for (const auto& entry : std::filesystem::directory_iterator(".")) {
-        if (entry.path().extension() == ".preset") { // Используем свое расширение
-            presets.push_back(entry.path().filename().string());
+void Model::GetWeapons() {
+  for (auto& [id, item] : json_weapons.items()) {
+    if (!item.is_object()) continue;
+
+    Gear object = {};
+    std::string domain = item.value("domain", "");
+    std::string release_state = item.value("release_state", "");
+    std::string item_class = item.value("item_class", "");
+
+    if (domain == "item" && release_state == "released" &&
+        !item_class.empty()) {
+      // small json protection from not existing data
+      object.base_name = item.value("name", "Unnamed");
+      std::transform(item_class.begin(), item_class.end(), item_class.begin(),
+                     ::tolower);
+      object.class_name = item_class;
+      std::set<std::string> tags;
+      if (!item.contains("tags")) {
+        continue;
+      }
+
+      if (!item["tags"].is_array()) {
+        continue;
+      }
+
+      bool skip_tag_required = false;
+
+      for (auto& tag : item["tags"]) {
+        if (!tag.is_string()) {
+          continue;
         }
-    }
-    return presets;
-}
 
-void Model::LoadPresetFromFile(const std::string& filename) {
-    std::ifstream f(filename);
-    if (f.is_open()) {
-        json j = json::parse(f);
-        current_preset_items.clear();
-        for (auto& item : j) {
-            SelectedItem si;
-            si.tag_name = item["tag"];
-            si.affixes = item["affixes"].get<std::vector<std::string>>();
-            current_preset_items.push_back(si);
+        if (tag.get<std::string>() == "not_for_sale") {
+          skip_tag_required = true;
+          break;
         }
+
+        std::string tag_data = tag.get<std::string>();
+        std::transform(tag_data.begin(), tag_data.end(), tag_data.begin(),
+                       ::tolower);
+        tags.insert(tag_data);
+      }
+
+      if (skip_tag_required) {
+        continue;
+      }
+      std::string item_name = object.base_name;
+      std::string item_class_name = object.class_name;
+
+      object.tags = std::move(tags);
+      size_t tags_count = object.tags.size();
+      parsed_gear.push_back(std::move(object));
     }
+  }
+  json_weapons.clear();
 }
 
-void Model::CreateNewPreset() {
-    current_preset_items.clear();
-}
-
-void Model::ClearCurrentPreset() {
-    current_preset_items.clear();
-}
-
-std::set<std::string> Model::GetQueryTagsForBase(const std::string& base, const std::vector<std::string>& manual_stats) {
-    std::set<std::string> tags;
-    tags.insert(base);
-
-    // Логика для фокусов (скрытая настройка модели)
-    if (base == "focus") {
-        tags.insert("armour");
-        tags.insert("int_armour");
+void Model::GetAffixes() {
+  for (auto& [id, item] : json_affixes.items()) {
+    if (!item.is_object()) continue;
+    if (item.value("domain", "") != "item") continue;
+    if (item.value("is_essence_only", false)) continue;
+    Affix object{};
+    if (item.contains("generation_type") &&
+        !item["generation_type"].is_null()) {
+      object.generation_type = item["generation_type"].get<std::string>();
     }
-    // Логика для брони (явная настройка через статы)
-    else if (IsArmourBase(base)) {
-        tags.insert("armour");
-        std::string condition = BuildConditionTag(manual_stats);
-        if (!condition.empty()) {
-            tags.insert(condition);
+    if (object.generation_type != "suffix" &&
+        object.generation_type != "prefix") {
+      continue;
+    }
+    if (item.contains("released") && !item["released"].is_null()) {
+      std::string released = item["released"].get<std::string>();
+      if (released != "released") continue;
+    }
+
+    if (item.contains("type") && !item["type"].is_null()) {
+      object.affix_type = item["type"].get<std::string>();
+    }
+    if (item.contains("text") && !item["text"].is_null()) {
+      object.affix_text = item["text"].get<std::string>();
+    }
+
+    if (item.contains("spawn_weights") && item["spawn_weights"].is_array()) {
+      for (auto& w : item["spawn_weights"]) {
+        if (!w.is_object()) continue;
+        std::string tag = w.value("tag", "");
+        int weight = w.value("weight", 0);
+        if (!tag.empty()) {
+          object.tags.emplace_back(tag, weight);
         }
+      }
     }
-    
-    return tags;
+
+    parsed_affixes.push_back(std::move(object));
+  }
+  json_affixes.clear();
+}
+
+std::vector<std::string> Model::SearchRequestedGear(
+    const std::string& item_gear) {
+  std::string item_gear_copy = item_gear;
+  std::transform(item_gear_copy.begin(), item_gear_copy.end(),
+                 item_gear_copy.begin(), ::tolower);
+
+  if (item_gear_copy == curr_gear) {
+    return cached_affix_names;
+  }
+  curr_gear_tags.clear();
+  curr_gear_affixes.clear();
+  cached_affix_names.clear();
+
+  for (auto& gear : parsed_gear) {
+    if (gear.class_name == item_gear_copy) {
+      for (auto& tag : gear.tags) {
+        curr_gear_tags.insert(tag);
+      }
+    }
+  }
+
+  for (const Affix& affix : parsed_affixes) {
+    int final_weight = 0;
+    bool match_found = false;
+
+    for (const Tag& w : affix.tags) {
+      if (curr_gear_tags.count(w.tag_name)) {
+        final_weight = w.weight;
+        match_found = true;
+        break;
+      }
+    }
+    if (match_found && final_weight > 0) {
+      curr_gear_affixes.push_back(affix);
+    }
+  }
+
+  for (auto& affix : curr_gear_affixes) {
+    std::string text = NormalizeAffixText(affix.affix_text);
+
+    if (std::find(cached_affix_names.begin(), cached_affix_names.end(), text) ==
+        cached_affix_names.end()) {
+      cached_affix_names.push_back(text);
+    }
+  }
+  return cached_affix_names;
+}
+
+std::set<std::string> Model::GetClassNames() {
+  std::set<std::string> gear_classes = {};
+  for (auto& gear : parsed_gear) {
+    gear_classes.insert(gear.class_name);
+  }
+  return gear_classes;
 }

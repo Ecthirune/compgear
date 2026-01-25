@@ -5,51 +5,45 @@
 #include <string>
 #include <vector>
 
-using json = nlohmann::json;
-
-struct ItemData {
-  std::vector<std::string> base_types;
-  std::vector<std::string> condition_tags;
+struct Gear {
+  std::string base_name;
+  std::string class_name;
+  std::set<std::string> tags;
 };
-struct SelectedItem {
+
+struct Tag {
   std::string tag_name;
-  std::vector<std::string> affixes;
+  int weight;
+  Tag(std::string n, int w) : tag_name(std::move(n)), weight(w) {}
 };
 
-struct Preset {
-  std::string name;
-  std::vector<SelectedItem> items;
+struct Affix {
+  std::string affix_type;
+  std::string affix_text;
+  std::string generation_type;
+  std::vector<Tag> tags;
 };
-
 class Model {
  public:
-  Model() { LoadData(); }
-  void LoadData();
-
-  // Straight json parsing and sorting
-  ItemData GetParsedItemData();
-  std::vector<std::string> GetAffixesByTags(
-      const std::set<std::string>& search_tags);
-
-  // Small convertations for armour/shield tag
-  std::string BuildConditionTag(const std::vector<std::string>& stats);
-  bool IsArmourBase(const std::string& base);
-
-  // preset controls
-  void AddAffixToPreset(const std::string& tag, const std::string& affix_text);
-  const std::vector<SelectedItem>& GetCurrentPresetItems() const {
-    return current_preset_items;
+  Model() {
+    LoadFiles();
+    GetWeapons();
+    GetAffixes();
   }
-  void SavePreset(const std::string& name);
-  std::vector<std::string> GetAvailablePresets();
-  void LoadPresetFromFile(const std::string& filename);
-  void CreateNewPreset();
-  void ClearCurrentPreset();
-  std::set<std::string> GetQueryTagsForBase(const std::string& base, const std::vector<std::string>& manual_stats);
+  void LoadFiles();
+  void GetWeapons();
+  void GetAffixes();
+  std::vector<std::string> SearchRequestedGear(const std::string& item_gear);
+  std::set<std::string> GetClassNames();
 
-  
  private:
-  json cached_data;
-  std::vector<SelectedItem> current_preset_items;
-  std::vector<Preset> saved_presets;
+  nlohmann::json json_affixes;
+  nlohmann::json json_weapons;
+  std::vector<Gear> parsed_gear;
+  std::vector<Affix> parsed_affixes;
+
+  std::string curr_gear;
+  std::set<std::string> curr_gear_tags;
+  std::vector<Affix> curr_gear_affixes;
+  std::vector<std::string> cached_affix_names;
 };
