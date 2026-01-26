@@ -231,3 +231,9 @@ std::set<std::string> Model::GetClassNames() {
   }
   return gear_classes;
 }
+
+  Model::Model() {
+    LoadFiles();
+    GetWeapons();
+    GetAffixes();
+  }

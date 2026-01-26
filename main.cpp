@@ -7,7 +7,11 @@
 #pragma comment(lib, "dwmapi.lib")
 #pragma comment(lib, "d3d11.lib")
 
-extern bool imgui_init();
+
+#include "controller/controller.h"
+
+
+extern bool imgui_init(Controller& ctrl);
 
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
                    _In_ LPSTR lpCmdLine, _In_ int nShowCmd) {
@@ -17,5 +21,6 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
       GetModuleHandleW(L"user32.dll"), "SetProcessDpiAwarenessContext"));
   if (fn)
     fn((HANDLE)-4);  // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
-  return imgui_init() ? 0 : 1;
+    Controller ctrl;
+  return imgui_init(ctrl) ? 0 : 1;
 }

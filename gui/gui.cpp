@@ -35,8 +35,8 @@ void CleanupDeviceD3D();
 bool CreateDeviceD3D(HWND hWnd);
 void CreateRenderTarget();
 
-void RenderEditor();
-void RenderUI();
+void RenderEditor(Controller& ctrl);
+void RenderUI(Controller& ctrl);
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg,
                                               WPARAM wParam, LPARAM lParam);
@@ -152,7 +152,7 @@ bool CreateDeviceD3D(HWND hWnd) {
   return true;
 }
 
-bool imgui_init() {
+bool imgui_init(Controller& ctrl) {
   WNDCLASSEX wc = {sizeof(wc)};
   wc.style = CS_CLASSDC;
   wc.lpfnWndProc = WndProc;
@@ -227,7 +227,7 @@ bool imgui_init() {
       ImGui_ImplWin32_NewFrame();
       ImGui::NewFrame();
 
-      RenderUI();
+      RenderUI(ctrl);
 
       ImGui::Render();
       const float clear_color_with_alpha[4] = {0.f, 0.f, 0.f, 0.f};
@@ -265,9 +265,8 @@ bool imgui_init() {
 enum class GuiState { MainMenu, Editor };
 static GuiState g_currentState = GuiState::MainMenu;
 static bool init = false;
-static std::string chosen_class = {};
-static std::vector<std::pair<std::string, std::string>> affix_list = {};
-static std::set<std::string>::iterator selected_it = {};
+
+
 
 bool PassFilter(const std::string& affix, const std::string& filter) {
   if (filter.empty()) return true;
@@ -288,34 +287,34 @@ bool PassFilter(const std::string& affix, const std::string& filter) {
   return true;
 }
 
-void RenderEditor() {
+void RenderEditor(Controller& ctrl) {
   if (ImGui::Button("<< Back to Menu")) g_currentState = GuiState::MainMenu;
 
-  std::set<std::string> class_names = Controller::GetAllGearList();
+  std::set<std::string> class_names = ctrl.GetAllGearList();
 
   if (!init && !class_names.empty()) {
-    selected_it = class_names.begin();
-    chosen_class = *selected_it;
-    affix_list = Controller::SetGearToSearch(chosen_class);
+    ctrl.GetSelectedIt() = class_names.begin();
+    ctrl.GetChosenClass() = *ctrl.GetSelectedIt();
+    ctrl.GetAffixList() = ctrl.SetGearToSearch(ctrl.GetChosenClass());
     init = true;
   }
 
   try {
     ImGui::Begin("Affix Selector");
     const char* preview_value =
-        chosen_class.empty() ? "Select..." : chosen_class.c_str();
+        ctrl.GetChosenClass().empty() ? "Select..." : ctrl.GetChosenClass().c_str();
 
-    if (ImGui::BeginCombo("Item Base", chosen_class.empty()
+    if (ImGui::BeginCombo("Item Base", ctrl.GetChosenClass().empty()
                                            ? "Select..."
-                                           : chosen_class.c_str())) {
+                                           : ctrl.GetChosenClass().c_str())) {
       for (const auto& name : class_names) {
-        bool is_selected = (name == chosen_class);
+        bool is_selected = (name == ctrl.GetChosenClass());
         if (ImGui::Selectable(name.c_str(), is_selected)) {
-          chosen_class = name;
-          affix_list = Controller::SetGearToSearch(name);
-          auto found = class_names.find(chosen_class);
+          ctrl.GetChosenClass() = name;
+          ctrl.GetAffixList() = ctrl.SetGearToSearch(name);
+          auto found = class_names.find(ctrl.GetChosenClass());
           if (found != class_names.end()) {
-            selected_it = found;
+            ctrl.GetSelectedIt() = found;
           }
         }
       }
@@ -325,17 +324,17 @@ void RenderEditor() {
     OutputDebugStringA(e.what());
   }
 
-  static int filter_size = (int)affix_list.size();
+  static int filter_size = (int)ctrl.GetAffixList().size();
   ImGui::Text("Available Affixes: %d", filter_size);
   static char filter[128] = "";
   ImGui::InputText("Filter", filter, IM_ARRAYSIZE(filter));
   if (ImGui::BeginListBox("#Affix list", ImVec2(300, 200))) {
     filter_size = 0;
-    for (const auto& affix : affix_list) {
+    for (const auto& affix : ctrl.GetAffixList()) {
       if (PassFilter(affix.first, filter)) {
         filter_size++;
         std::string text = affix.first + "[" + affix.second + "]";
-        ImGui::Selectable(text.c_str(), false);
+        ImGui::Selectable(text.c_str(), true);
       }
     }
     ImGui::EndListBox();
@@ -347,20 +346,20 @@ void RenderMainMenu() {
                ImGuiWindowFlags_AlwaysAutoResize);
 
   if (ImGui::Button("A) Create New Preset", ImVec2(300, 40))) {
-    // Controller::NewPreset();
+    // ctrl.NewPreset();
     g_currentState = GuiState::Editor;
   }
 
   ImGui::Separator();
   ImGui::Text("B) Edit Existing Preset:");
 
-  // // auto presets = Controller::GetPresetList();
+  // // auto presets = ctrl.GetPresetList();
   // if (presets.empty()) {
   //   ImGui::TextDisabled("No presets found in folder...");
   // } else {
   //   for (const auto& name : presets) {
   //     if (ImGui::Button(name.c_str(), ImVec2(300, 0))) {
-  //       // Controller::LoadPreset(name);
+  //       // ctrl.LoadPreset(name);
   //       g_currentState = GuiState::Editor;
   //     }
   //   }
@@ -369,12 +368,12 @@ void RenderMainMenu() {
   ImGui::End();
 }
 
-void RenderUI() {
+void RenderUI(Controller& ctrl) {
   try {
     if (g_currentState == GuiState::MainMenu) {
       RenderMainMenu();
     } else {
-      RenderEditor();
+      RenderEditor(ctrl);
     }
   } catch (const std::exception& e) {
     OutputDebugStringA(e.what());

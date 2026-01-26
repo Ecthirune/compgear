@@ -25,11 +25,7 @@ struct Affix {
 };
 class Model {
  public:
-  Model() {
-    LoadFiles();
-    GetWeapons();
-    GetAffixes();
-  }
+  Model();
   void LoadFiles();
   void GetWeapons();
   void GetAffixes();
