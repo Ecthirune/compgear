@@ -7,7 +7,7 @@
 
 static Model g_model;
 
-std::vector<std::string> Controller::SetGearToSearch(
+std::vector<std::pair<std::string, std::string>> Controller::SetGearToSearch(
     const std::string& item_gear) {
   return g_model.SearchRequestedGear(item_gear);
 }

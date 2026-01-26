@@ -170,7 +170,7 @@ void Model::GetAffixes() {
   json_affixes.clear();
 }
 
-std::vector<std::string> Model::SearchRequestedGear(
+std::vector<std::pair<std::string, std::string>> Model::SearchRequestedGear(
     const std::string& item_gear) {
   std::string item_gear_copy = item_gear;
   std::transform(item_gear_copy.begin(), item_gear_copy.end(),
@@ -210,9 +210,15 @@ std::vector<std::string> Model::SearchRequestedGear(
   for (auto& affix : curr_gear_affixes) {
     std::string text = NormalizeAffixText(affix.affix_text);
 
-    if (std::find(cached_affix_names.begin(), cached_affix_names.end(), text) ==
-        cached_affix_names.end()) {
-      cached_affix_names.push_back(text);
+    bool already_exists = false;
+    for (const auto& p : cached_affix_names) {
+      if (p.first == text){
+        already_exists = true;
+        break;
+      }
+    }
+    if (!already_exists) {
+      cached_affix_names.emplace_back(text, affix.generation_type);
     }
   }
   return cached_affix_names;

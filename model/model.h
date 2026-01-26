@@ -33,7 +33,7 @@ class Model {
   void LoadFiles();
   void GetWeapons();
   void GetAffixes();
-  std::vector<std::string> SearchRequestedGear(const std::string& item_gear);
+  std::vector<std::pair<std::string, std::string>> SearchRequestedGear( const std::string& item_gear);
   std::set<std::string> GetClassNames();
 
  private:
@@ -45,5 +45,5 @@ class Model {
   std::string curr_gear;
   std::set<std::string> curr_gear_tags;
   std::vector<Affix> curr_gear_affixes;
-  std::vector<std::string> cached_affix_names;
+  std::vector<std::pair<std::string, std::string>> cached_affix_names;
 };

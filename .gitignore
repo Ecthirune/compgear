@@ -1,2 +1,8 @@
 build
 ALL_BUILD.dir
+input.json
+a.exe
+test.cpp
+test.exe
+weapons.txt
+input.json.bak

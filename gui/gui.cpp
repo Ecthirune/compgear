@@ -262,10 +262,12 @@ bool imgui_init() {
   return true;
 }
 
-static std::vector<std::string> available_affixes;
 enum class GuiState { MainMenu, Editor };
 static GuiState g_currentState = GuiState::MainMenu;
-static int selected_affix_idx = 0;
+static bool init = false;
+static std::string chosen_class = {};
+static std::vector<std::pair<std::string, std::string>> affix_list = {};
+static std::set<std::string>::iterator selected_it = {};
 
 bool PassFilter(const std::string& affix, const std::string& filter) {
   if (filter.empty()) return true;
@@ -288,11 +290,9 @@ bool PassFilter(const std::string& affix, const std::string& filter) {
 
 void RenderEditor() {
   if (ImGui::Button("<< Back to Menu")) g_currentState = GuiState::MainMenu;
-  static bool init = false;
+
   std::set<std::string> class_names = Controller::GetAllGearList();
-  static std::string chosen_class = {};
-  static std::vector<std::string> affix_list = {};
-  static std::set<std::string>::iterator selected_it = {};
+
   if (!init && !class_names.empty()) {
     selected_it = class_names.begin();
     chosen_class = *selected_it;
@@ -332,9 +332,10 @@ void RenderEditor() {
   if (ImGui::BeginListBox("#Affix list", ImVec2(300, 200))) {
     filter_size = 0;
     for (const auto& affix : affix_list) {
-      if (PassFilter(affix, filter)) {
+      if (PassFilter(affix.first, filter)) {
         filter_size++;
-        ImGui::Selectable(affix.c_str(), false);
+        std::string text = affix.first + "[" + affix.second + "]";
+        ImGui::Selectable(text.c_str(), false);
       }
     }
     ImGui::EndListBox();
