@@ -37,6 +37,7 @@ void CreateRenderTarget();
 
 void RenderEditor(Controller& ctrl);
 void RenderUI(Controller& ctrl);
+void RenderMainMenu(Controller& ctrl);
 
 extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg,
                                               WPARAM wParam, LPARAM lParam);
@@ -266,8 +267,6 @@ enum class GuiState { MainMenu, Editor };
 static GuiState g_currentState = GuiState::MainMenu;
 static bool init = false;
 
-
-
 bool PassFilter(const std::string& affix, const std::string& filter) {
   if (filter.empty()) return true;
 
@@ -291,7 +290,6 @@ void RenderEditor(Controller& ctrl) {
   if (ImGui::Button("<< Back to Menu")) g_currentState = GuiState::MainMenu;
 
   std::set<std::string> class_names = ctrl.GetAllGearList();
-
   if (!init && !class_names.empty()) {
     ctrl.GetSelectedIt() = class_names.begin();
     ctrl.GetChosenClass() = *ctrl.GetSelectedIt();
@@ -299,55 +297,110 @@ void RenderEditor(Controller& ctrl) {
     init = true;
   }
 
-  try {
-    ImGui::Begin("Affix Selector");
-    const char* preview_value =
-        ctrl.GetChosenClass().empty() ? "Select..." : ctrl.GetChosenClass().c_str();
+  if (ImGui::BeginTable(
+          "EditorLayout", 2,
+          ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV)) {
+    // affix chooser
+    ImGui::TableNextColumn();
+    {
+      ImGui::Text("Selection Area");
 
-    if (ImGui::BeginCombo("Item Base", ctrl.GetChosenClass().empty()
-                                           ? "Select..."
-                                           : ctrl.GetChosenClass().c_str())) {
-      for (const auto& name : class_names) {
-        bool is_selected = (name == ctrl.GetChosenClass());
-        if (ImGui::Selectable(name.c_str(), is_selected)) {
-          ctrl.GetChosenClass() = name;
-          ctrl.GetAffixList() = ctrl.SetGearToSearch(name);
-          auto found = class_names.find(ctrl.GetChosenClass());
-          if (found != class_names.end()) {
-            ctrl.GetSelectedIt() = found;
+      // item class
+      if (ImGui::BeginCombo("Item Base", ctrl.GetChosenClass().empty()
+                                             ? "Select..."
+                                             : ctrl.GetChosenClass().c_str())) {
+        for (const auto& name : class_names) {
+          if (ImGui::Selectable(name.c_str(), name == ctrl.GetChosenClass())) {
+            ctrl.GetChosenClass() = name;
+            ctrl.GetAffixList() = ctrl.SetGearToSearch(name);
+          }
+        }
+        ImGui::EndCombo();
+      }
+
+      // affix filter
+      static char filter[128] = "";
+      ImGui::InputText("Filter", filter, IM_ARRAYSIZE(filter));
+
+      // affix list
+      if (ImGui::BeginListBox("##AffixList", ImVec2(-FLT_MIN, 300))) {
+        for (const auto& affix : ctrl.GetAffixList()) {
+          if (PassFilter(affix.first, filter)) {
+            std::string text = affix.first + " [" + affix.second + "]";
+            bool is_selected = (affix.first == ctrl.GetSelectedAffix().first &&
+                                affix.second == ctrl.GetSelectedAffix().second);
+
+            if (ImGui::Selectable(text.c_str(), is_selected)) {
+              ctrl.SetSelectedAffix(affix);
+            }
+          }
+        }
+        ImGui::EndListBox();
+      }
+
+      if (ImGui::Button("Add to Preset", ImVec2(-FLT_MIN, 40))) {
+        if (!ctrl.GetSelectedAffix().first.empty()) {
+          ctrl.AddAffixToPreset(ctrl.GetSelectedAffix(), 1);
+          ctrl.SetSelectedAffix();
+          memset(filter, 0, 128);
+        }
+      }
+    }
+
+    // preset preview
+    ImGui::TableNextColumn();
+    {
+      ImGui::Text("Current Preset Content");
+      ImGui::Separator();
+
+      auto& preset = ctrl.GetCurrentPreset();
+
+      if (ImGui::BeginChild("PresetScrollArea")) {
+        for (const auto& gear : preset.gears) {
+          if (ImGui::TreeNode(gear.gear_name.c_str())) {
+            if (!gear.prefixes.empty()) {
+              ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "Prefixes:");
+              for (const auto& p : gear.prefixes) {
+                ImGui::BulletText("%s", p.c_str());
+              }
+            }
+
+            if (!gear.suffixes.empty()) {
+              ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.4f, 1.0f), "Suffixes:");
+              for (const auto& s : gear.suffixes) {
+                ImGui::BulletText("%s", s.c_str());
+              }
+            }
+
+            ImGui::TreePop();
+            ImGui::Separator();
           }
         }
       }
-      ImGui::EndCombo();
+      ImGui::EndChild();
     }
-  } catch (const std::exception& e) {
-    OutputDebugStringA(e.what());
-  }
 
-  static int filter_size = (int)ctrl.GetAffixList().size();
-  ImGui::Text("Available Affixes: %d", filter_size);
-  static char filter[128] = "";
-  ImGui::InputText("Filter", filter, IM_ARRAYSIZE(filter));
-  if (ImGui::BeginListBox("#Affix list", ImVec2(300, 200))) {
-    filter_size = 0;
-    for (const auto& affix : ctrl.GetAffixList()) {
-      if (PassFilter(affix.first, filter)) {
-        filter_size++;
-        std::string text = affix.first + "[" + affix.second + "]";
-        ImGui::Selectable(text.c_str(), true);
-      }
-    }
-    ImGui::EndListBox();
+    ImGui::EndTable();
   }
 }
 
-void RenderMainMenu() {
+void RenderMainMenu(Controller& ctrl) {
   ImGui::Begin("PoE2 Preset Manager", nullptr,
                ImGuiWindowFlags_AlwaysAutoResize);
 
   if (ImGui::Button("A) Create New Preset", ImVec2(300, 40))) {
-    // ctrl.NewPreset();
-    g_currentState = GuiState::Editor;
+    ctrl.StartCreatingPreset();
+  }
+
+  if (ctrl.IsCreatingPreset()) {
+    static char preset_name[128];
+    ImGui::InputText("Preset Name", preset_name, IM_ARRAYSIZE(preset_name));
+
+    if (ImGui::Button("Ok", ImVec2(300, 40))) {
+      ctrl.NewPreset(std::string(preset_name));
+      g_currentState = GuiState::Editor;
+      ctrl.FinishCreatingPreset();
+    }
   }
 
   ImGui::Separator();
@@ -371,7 +424,7 @@ void RenderMainMenu() {
 void RenderUI(Controller& ctrl) {
   try {
     if (g_currentState == GuiState::MainMenu) {
-      RenderMainMenu();
+      RenderMainMenu(ctrl);
     } else {
       RenderEditor(ctrl);
     }

@@ -29,7 +29,8 @@ class Model {
   void LoadFiles();
   void GetWeapons();
   void GetAffixes();
-  std::vector<std::pair<std::string, std::string>> SearchRequestedGear( const std::string& item_gear);
+  std::vector<std::pair<std::string, std::string>> SearchRequestedGear(
+      const std::string& item_gear);
   std::set<std::string> GetClassNames();
 
  private:

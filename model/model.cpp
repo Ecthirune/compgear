@@ -212,7 +212,7 @@ std::vector<std::pair<std::string, std::string>> Model::SearchRequestedGear(
 
     bool already_exists = false;
     for (const auto& p : cached_affix_names) {
-      if (p.first == text){
+      if (p.first == text) {
         already_exists = true;
         break;
       }
@@ -232,8 +232,8 @@ std::set<std::string> Model::GetClassNames() {
   return gear_classes;
 }
 
-  Model::Model() {
-    LoadFiles();
-    GetWeapons();
-    GetAffixes();
-  }
+Model::Model() {
+  LoadFiles();
+  GetWeapons();
+  GetAffixes();
+}
